@@ -35,13 +35,23 @@ jobs:
 
       - name: Run Launch Script
         run: |
+          # 1. Tự động dọn dẹp khoảng trắng/xuống dòng thừa trong OCID
+          COMPARTMENT_ID=$(echo "${{ secrets.OCI_TENANCY_OCID }}" | tr -d '[:space:]')
+          
+          # 2. Lưu SSH Key ra file chuẩn (Tránh lỗi ảo hóa của Bash)
+          echo "${{ secrets.OCI_SSH_PUB }}" > ssh_key.pub
+          
+          # 3. Lưu cấu hình RAM/CPU ra file JSON (Sửa triệt để lỗi CannotParseRequest)
+          echo '{"ocpus": 2, "memoryInGBs": 12}' > shape.json
+          
+          # 4. Gửi lệnh săn máy chuẩn xác 100%
           oci compute instance launch \
             --availability-domain "UoXp:AP-SINGAPORE-1-AD-1" \
-            --compartment-id "${{ secrets.OCI_TENANCY_OCID }}" \
+            --compartment-id "$COMPARTMENT_ID" \
             --shape "VM.Standard.A1.Flex" \
-            --shape-config '{"ocpus": 2, "memoryInGBs": 12}' \
+            --shape-config file://shape.json \
             --image-id "ocid1.image.oc1.ap-singapore-1.aaaaaaaaidxm5n3z2v5p2z5qzn6j7j3y2m3u2i2e2n2o2r2t2s2u2v2x2y2z" \
             --subnet-id "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaad5bcepewnlhqqckbxnyf64f5yg4daxqfnze3etwp3hfek62pkfda" \
             --assign-public-ip true \
             --display-name "ARQ-RAG-Server" \
-            --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUB }}")
+            --ssh-authorized-keys-file ssh_key.pub
