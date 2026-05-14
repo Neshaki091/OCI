@@ -1,53 +1,92 @@
-name: Oracle ARM Hunter
+name: Oracle ARM Hunter Python Edition
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '*/15 * * * *' # Chạy mỗi 15 phút
 
 jobs:
   hunt:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      - name: Install OCI CLI
-        run: |
-          pip install oci-cli
+      - name: Install OCI SDK
+        run: pip install oci
 
-      - name: Create Config File
+      - name: Run Hunting Script
+        env:
+          # Truyền các Secret vào môi trường của Python
+          OCI_USER: ${{ secrets.OCI_USER_OCID }}
+          OCI_TENANCY: ${{ secrets.OCI_TENANCY_OCID }}
+          OCI_FINGERPRINT: ${{ secrets.OCI_FINGERPRINT }}
+          OCI_REGION: ${{ secrets.OCI_REGION }}
+          OCI_KEY_CONTENT: ${{ secrets.OCI_KEY_FILE }}
+          OCI_SSH_PUB: ${{ secrets.OCI_SSH_PUB }}
         run: |
-          mkdir -p ~/.oci
-          echo "[DEFAULT]" > ~/.oci/config
-          echo "user=${{ secrets.OCI_USER_OCID }}" >> ~/.oci/config
-          echo "fingerprint=${{ secrets.OCI_FINGERPRINT }}" >> ~/.oci/config
-          echo "tenancy=${{ secrets.OCI_TENANCY_OCID }}" >> ~/.oci/config
-          echo "region=${{ secrets.OCI_REGION }}" >> ~/.oci/config
-          echo "key_file=~/.oci/key.pem" >> ~/.oci/config
-          echo "${{ secrets.OCI_KEY_FILE }}" > ~/.oci/key.pem
-          chmod 600 ~/.oci/key.pem
+          python - <<EOF
+          import oci
+          import os
+          import time
+          from datetime import datetime
 
-      - name: Run Launch Script
-        run: |
-          # 1. Dọn dẹp khoảng trắng rác trong biến OCID (Rất quan trọng)
-          COMPARTMENT_ID=$(echo "${{ secrets.OCI_TENANCY_OCID }}" | tr -d '[:space:]')
-          
-          # 2. Lưu SSH Key ra file cứng
-          echo "${{ secrets.OCI_SSH_PUB }}" > ssh_key.pub
-          
-          # 3. Gửi lệnh đi săn (Đã gọt sạch các lệnh thừa gây lỗi cú pháp 400)
-          oci compute instance launch \
-            --availability-domain "UoXp:AP-SINGAPORE-1-AD-1" \
-            --compartment-id "$COMPARTMENT_ID" \
-            --shape "VM.Standard.A1.Flex" \
-            --shape-config '{"ocpus":2,"memoryInGBs":12}' \
-            --image-id "ocid1.image.oc1.ap-singapore-1.aaaaaaaaidxm5n3z2v5p2z5qzn6j7j3y2m3u2i2e2n2o2r2t2s2u2v2x2y2z" \
-            --subnet-id "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaad5bcepewnlhqqckbxnyf64f5yg4daxqfnze3etwp3hfek62pkfda" \
-            --display-name "ARQ-RAG-Server" \
-            --ssh-authorized-keys-file ssh_key.pub
+          # 1. Khởi tạo cấu hình từ Environment Variables
+          # Tự động dọn dẹp các ký tự rác (xuống dòng, khoảng trắng)
+          def clean(val): return val.strip() if val else ""
+
+          # Ghi Private Key ra file tạm để SDK đọc
+          with open("private_key.pem", "w") as f:
+              f.write(os.getenv("OCI_KEY_CONTENT"))
+
+          config = {
+              "user": clean(os.getenv("OCI_USER")),
+              "fingerprint": clean(os.getenv("OCI_FINGERPRINT")),
+              "tenancy": clean(os.getenv("OCI_TENANCY")),
+              "region": clean(os.getenv("OCI_REGION")),
+              "key_file": "./private_key.pem"
+          }
+
+          # 2. Thông số máy săn (Lấy từ dữ liệu bạn đã cung cấp)
+          AD = "UoXp:AP-SINGAPORE-1-AD-1"
+          SHAPE = "VM.Standard.A1.Flex"
+          IMAGE_ID = "ocid1.image.oc1.ap-singapore-1.aaaaaaaaidxm5n3z2v5p2z5qzn6j7j3y2m3u2i2e2n2o2r2t2s2u2v2x2y2z"
+          SUBNET_ID = "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaad5bcepewnlhqqckbxnyf64f5yg4daxqfnze3etwp3hfek62pkfda"
+          SSH_PUB = os.getenv("OCI_SSH_PUB")
+
+          compute_client = oci.core.ComputeClient(config)
+
+          instance_details = oci.core.models.LaunchInstanceDetails(
+              compartment_id=config["tenancy"],
+              availability_domain=AD,
+              shape=SHAPE,
+              shape_config=oci.core.models.LaunchInstanceShapeConfigDetails(ocpus=2, memory_in_gbs=12),
+              display_name="ARQ-RAG-Server",
+              source_details=oci.core.models.InstanceSourceViaImageDetails(source_type="image", image_id=IMAGE_ID),
+              create_vnic_details=oci.core.models.CreateVnicDetails(assign_public_ip=True, subnet_id=SUBNET_ID),
+              metadata={"ssh_authorized_keys": clean(SSH_PUB)}
+          )
+
+          print(f"[{datetime.now()}] Bắt đầu đợt săn máy ARM...")
+
+          # Vòng lặp săn tin trong 14 phút (tránh trùng lặp với schedule tiếp theo)
+          start_time = time.time()
+          while time.time() - start_time < 840: 
+              try:
+                  response = compute_client.launch_instance(instance_details)
+                  print(f"🎉 THÀNH CÔNG! ID máy: {response.data.id}")
+                  exit(0)
+              except oci.exceptions.ServiceError as e:
+                  if e.status == 429 or "capacity" in e.message.lower():
+                      print(f"[{datetime.now().strftime('%H:%M:%S')}] Hết tài nguyên. Thử lại sau 30s...")
+                      time.sleep(30)
+                  else:
+                      print(f"❌ Lỗi API ({e.status}): {e.message}")
+                      exit(1)
+              except Exception as e:
+                  print(f"❌ Lỗi hệ thống: {str(e)}")
+                  exit(1)
+          print("Hết thời gian chờ của đợt này. Hẹn gặp lại ở đợt sau!")
+          EOF
