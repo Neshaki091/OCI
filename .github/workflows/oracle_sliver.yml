@@ -1,9 +1,9 @@
 name: Oracle ARM Hunter
 
 on:
-  workflow_dispatch: # Chạy thủ công
+  workflow_dispatch:
   schedule:
-    - cron: '*/15 * * * *' # Chạy mỗi 15 phút
+    - cron: '*/15 * * * *'
 
 jobs:
   hunt:
@@ -35,13 +35,13 @@ jobs:
 
       - name: Run Launch Script
         run: |
-          # Đây là lệnh CLI để tạo máy. Bạn cần thay Subnet-OCID và Image-OCID của bạn vào đây.
           oci compute instance launch \
-            --availability-domain "AD-1" \
+            --availability-domain "UoXp:AP-SINGAPORE-1-AD-1" \
             --compartment-id "${{ secrets.OCI_TENANCY_OCID }}" \
             --shape "VM.Standard.A1.Flex" \
             --shape-config '{"ocpus": 2, "memoryInGBs": 12}' \
-            --image-id "ocid1.image.oc1.ap-singapore-1.aaaaaaaa..." \
-            --subnet-id "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaa..." \
+            --image-id "ocid1.image.oc1.ap-singapore-1.aaaaaaaaidxm5n3z2v5p2z5qzn6j7j3y2m3u2i2e2n2o2r2t2s2u2v2x2y2z" \
+            --subnet-id "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaad5bcepewnlhqqckbxnyf64f5yg4daxqfnze3etwp3hfek62pkfda" \
             --assign-public-ip true \
-            --display-name "ARQ-RAG-Server"
+            --display-name "ARQ-RAG-Server" \
+            --ssh-authorized-keys-file <(echo "${{ secrets.OCI_SSH_PUB }}")
