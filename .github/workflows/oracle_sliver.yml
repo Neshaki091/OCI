@@ -47,11 +47,11 @@ jobs:
               "key_file": "./private_key.pem"
           }
 
-          AD = "UoXp:AP-SINGAPORE-1-AD-1".strip()
+          AD = "YhCu:AP-SINGAPORE-1-AD-1 ".strip()
           SHAPE = "VM.Standard.A1.Flex".strip()
           
           # Đảm bảo bạn dán ĐÚNG mã Subnet và Image của bạn ở 2 dòng dưới này nhé:
-          IMAGE_ID = "ocid1.image.oc1.ap-singapore-1.aaaaaaaaidxm5n3z2v5p2z5qzn6j7j3y2m3u2i2e2n2o2r2t2s2u2v2x2y2z".strip()
+          IMAGE_ID = "ocid1.image.oc1.ap-singapore-1.aaaaaaaaovl4wfgvifzemo53rqy4dbotsx2xsus7y6j374urnxfrjhijkfqq ".strip()
           SUBNET_ID = "ocid1.subnet.oc1.ap-singapore-1.aaaaaaaad5bcepewnlhqqckbxnyf64f5yg4daxqfnze3etwp3hfek62pkfda".strip()
           SSH_PUB = clean(os.getenv("OCI_SSH_PUB"))
 
