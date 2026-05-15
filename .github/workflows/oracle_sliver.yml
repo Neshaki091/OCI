@@ -3,7 +3,7 @@ name: Oracle ARM Hunter Python Edition
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/10 * * * *'
 
 jobs:
   hunt:
@@ -75,7 +75,7 @@ jobs:
 
           start_time = time.time()
           # Cắm cọc liên tục trong 14 phút
-          while time.time() - start_time < 1740: 
+          while time.time() - start_time < 3300: 
               try:
                   response = compute_client.launch_instance(instance_details)
                   print(f"🎉 THÀNH CÔNG! ID máy: {response.data.id}")
