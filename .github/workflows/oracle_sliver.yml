@@ -3,7 +3,7 @@ name: Oracle ARM Hunter Python Edition
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '*/13 * * * *'
 
 jobs:
   hunt:
