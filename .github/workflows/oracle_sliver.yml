@@ -19,6 +19,7 @@ jobs:
 
       - name: Run Hunting Script
         env:
+          PYTHONUNBUFFERED: "1"
           # Thêm dấu ngoặc kép để bảo vệ an toàn tuyệt đối cho file Secret
           OCI_USER: "${{ secrets.OCI_USER_OCID }}"
           OCI_TENANCY: "${{ secrets.OCI_TENANCY_OCID }}"
